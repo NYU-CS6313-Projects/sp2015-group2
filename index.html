@@ -1,0 +1,417 @@
+<!DOCTYPE HTML>
+<meta http-equiv="content-type" content="text/html; charset=UTF8">
+<html>
+  <head>
+    <title>GrapeVine v1.0</title>
+
+    <link href="static/lib/css/bootstrap.min.css" rel="stylesheet">
+
+    <script type="text/javascript" src="static/lib/js/jquery-1.11.2.min.js"></script>
+    <script type="text/javascript" src="static/lib/js/d3.js"></script>
+    <script type="text/javascript" src="static/lib/js/typeahead.js"></script>
+    <script type="text/javascript" src="static/lib/js/underscore-min.js"></script>
+
+    <script type="text/javascript">
+
+	var symbols=[];
+	var srch;
+	var data1;
+	var xScale, yScale;
+
+	//var parseDate = d3.time.format("%Y-%m-%d %H:%M:%S").parse;
+
+    	$(document).ready(function(){		
+    		//localhost:8181/serve/
+    		//./static/sample.json
+    		d3.json("static/sample.json", function(error, data){
+    			if(error){
+    				//Erorr occured
+    				console.log(error);
+    			}
+    			else{
+    				_.each(data, function(element, index, list){
+    					//Gather all companies in the dataset
+    					symbols.push(element.entities[0].ticker);
+    				})
+
+    				data1=data;
+    			}
+
+    			//Gather unique companies in the dataset
+			symbols = _.uniq(symbols);
+
+			//Setting up autocomplete
+			$('#txtSearch').typeahead({
+			name: 'States',
+			minLength: 1,
+			highlight: true, 
+			local: symbols
+			});
+
+			$("#lblReady").text('Ready !!!');
+
+			$("#txtSearch").focus();
+    		})
+
+    		var events=[];
+
+    		$('#btnSubmit').click(function(){
+
+    			//Get selected ticker
+    			srch = $('#txtSearch').val();
+    			console.log("Clicked " + srch);
+
+    			//Collect all events in an array
+    			events=[];
+
+    			_.each(data1, function(element1, index, list){
+    				 _.each(element1.entities, function(element, index, list){
+    				 	if(element.ticker == srch){
+    				 		_.each(element1.event_source_rank, function(element0, index, list){
+			 				events.push(element0.event);
+    				 		});
+    				 	}
+    				 });
+    			})
+    			
+    			//All Unique events
+    			events = _.uniq(events);
+    			$("#pnlEvents").empty();
+
+    			//Populate events to select from
+    			makeAList(events);
+    		});
+    	});
+	//---------------------------Document.Ready----------------------------
+
+	function makeAList(eventsList){
+		//Populate events
+		d3.select("#pnlEvents")
+			.attr("class", "list-group")
+			.selectAll("a")
+			.data(eventsList)
+			.enter()
+			.append("a")
+			.attr("class", "list-group-item")			
+			.text(function(d){
+				return d;
+			});
+
+		//On event selection, collect and show data
+		$("#pnlEvents a").click(function(){
+
+			var selectedEvent = $(this).text();
+
+			var dataMap=[];
+
+			//Collect ticker + event related data
+    			_.each(data1, function(element1, index, list){
+    				//console.log("element: " + element + " index: " + index);
+    				//console.log(new Date(element.harvested_at.$date));
+    				//console.log(element.entities[0].ticker);
+    				 
+    				 _.each(element1.entities, function(element, index, list){
+
+    				 	if(element.ticker == srch){
+    				 		_.each(element1.event_source_rank, function(element0, index, list){
+			 				//Event Dates
+    				 			if(element0.event == selectedEvent){
+    				 				dataMap.push({date: new Date(element1.harvested_at.$date)
+    				 						, sourceRank: element0.source_rank
+    				 						, sourceId: element1.source_id
+    				 						, articleURL: element1.article_url});
+    				 			}
+    				 		});
+    				 	}
+    				 });
+    			})
+
+			console.log(dataMap);
+
+			//After data is finalised, visualize!
+			drawScatter(dataMap);
+
+		});
+	}
+
+	//---------------------------Mapping functions---------------------------
+
+	function dater(date){
+		var newDate = new Date(date.getFullYear(), date.getMonth(), date.getUTCDate());
+		//console.log(newDate);
+		return newDate;
+	}
+
+	function drawScatter(dataMap){
+		console.log("Now plotting");
+		$("#pnlPlot").empty();
+
+	         	var scatterPadding = 80;
+		var w = 800;
+		var h = 500;
+
+		var svg = d3.select("#pnlPlot")
+				.append("svg")
+				.attr("class", "box")
+				.attr("height", h)
+				.attr("width", w);
+
+		xScale = d3.scale.linear()
+				.domain([d3.min(dataMap, function(d){ return d.date.getHours(); })
+					, d3.max(dataMap, function(d){ return d.date.getHours(); })])
+				.range([scatterPadding, w - scatterPadding * 3]);
+
+		yScale = d3.time.scale()
+					.domain([d3.min(dataMap, function(d){ var d1 = dater(d.date); return d1.setDate(d1.getDate() - 1); })
+						, d3.max(dataMap, function(d){ return dater(d.date); })])
+					.range([h - scatterPadding, scatterPadding]);
+
+		var rScale = d3.scale.linear()
+					.domain([d3.min(dataMap, function(d){ return d.sourceRank; }), d3.max(dataMap, function(d){ return d.sourceRank; })])
+					.range([2, 12]);
+
+		var xAxis = d3.svg.axis()
+				.scale(xScale)
+				.orient("bottom")
+				.innerTickSize(-(h - scatterPadding * 2))
+			    	.outerTickSize(0)
+				.ticks(12);	
+
+		var xGrid = d3.svg.axis()
+				.scale(xScale)
+				.orient("bottom")
+				.ticks(12)				
+				.tickSize(-(h - scatterPadding), 0, 0)
+				.tickFormat("");
+		
+		var yAxis = d3.svg.axis()
+				.orient("left")
+				.scale(yScale)
+				.innerTickSize(-(w - scatterPadding * 4))
+			    	.outerTickSize(0)
+				.ticks(6)
+				.tickFormat(d3.time.format('%b %d %Y'));
+		
+		var yGrid = d3.svg.axis()				
+				.scale(yScale)
+				.orient("left")
+				.ticks(6)
+				.tickSize(-(w - scatterPadding * 3), 0, 0)
+				.tickFormat("");
+
+		var tooltip = d3.select("body")
+				.append("div")
+				.style("position", "absolute")
+				.style("z-index", "10")
+				.style("visibility", "hidden")
+				.style("background-color", "white")
+				.style("opacity", "0.8")
+				.style("font-weight", "bold")
+				.text("tooltip");
+
+		/*var line = d3.svg.line()
+				    .x(function(d) { return xScale(d.date.getHours()); })
+				    .y(function(d) { return yScale(dater(d.date)); });*/
+
+		/*svg.append("path")
+			.data([dataMap])
+			.attr("class", "line")
+			.attr("d", line);*/
+
+		//Grid Lines
+		/*svg.append("g")         
+		        .attr("class", "grid")
+		        .attr("transform", "translate(0," + h  - scatterPadding + ")")
+		        .call(xGrid);		            
+
+		svg.append("g")         
+			.attr("class", "grid")
+			.attr("transform", "translate(" + scatterPadding + ", 0)")
+			.call(yGrid);*/
+
+		svg.selectAll("circle")
+			.data(dataMap)
+			.enter()
+			.append("circle")
+			.attr({
+				cx: function(d){ return xScale(d.date.getHours()); }
+				, cy: function(d){ return yScale(dater(d.date)); }
+				, r: function(d){ return rScale(d.sourceRank); }
+				, fill: '#500089'
+				, stroke: '#500089'
+			})
+		
+		svg.append("g")
+			.attr("class", "axis")
+			.attr("transform", "translate(0, " + (h - scatterPadding) +  ")")
+			.call(xAxis);
+
+		svg.append("g")
+			.attr("class", "axis")
+			.attr("transform", "translate(" + scatterPadding + ", 0)")
+			.call(yAxis);
+
+		d3.selectAll('circle').on('mouseover', function(){
+			//console.log($(this)[0].__data__.articleURL);
+			var tip = $(this)[0].__data__.articleURL;
+
+			tip = tip.split("/")[2];
+
+			tooltip.style("visibility", "visible");
+			tooltip.text(tip);
+		});
+
+		d3.selectAll('circle').on("mousemove", function(){
+			tooltip.style("top",(d3.event.pageY-10)+"px")
+			tooltip.style("left",(d3.event.pageX+10)+"px");
+		});
+
+		d3.selectAll('circle').on("mouseout", function(){
+			tooltip.style("visibility", "hidden");
+		});
+
+
+	}
+
+    </script>
+
+    <style type="text/css">
+    	.box{
+    		/*width: 500px;
+    		height: 150px;*/
+    		border: 1px solid black;
+    		display: block;
+    		margin: 10px 20px 10px 20px;
+
+    	}
+
+    	div.bar {
+	    	display: inline-block;
+	    	width: 20px;
+	    	height: 75px; /* We'll override height later */
+	    	background-color: teal;
+	    	margin-right: 2px;
+    	}
+
+    	.axis path,
+    	.axis line {
+	    	fill: none;
+	    	stroke: black;
+	    	shape-rendering: crispEdges;
+    	}
+    	.axis text {
+	    	font-family: sans-serif;
+	    	font-size: 11px;
+    	}
+
+    	.axis .tick line{
+	    opacity: 0.2;
+	  }
+
+    	  .grid .tick {
+    	      stroke: black;
+    	      opacity: 0.7;
+    	  }
+    	  .grid path {
+    	        stroke-width: 0;
+    	        shape-rendering: crispEdges;
+    	  }
+
+    	/*=====Type Ahead====*/
+    	/*********Type ahead**********/
+    	.twitter-typeahead .tt-query,
+    	.twitter-typeahead .tt-hint {
+    	  margin-bottom: 0;
+    	  background-color: white !important;
+    	}
+
+    	.tt-dropdown-menu {
+    	  min-width: 160px;
+    	  margin-top: 2px;
+    	  padding: 5px 0;
+    	  background-color: #fff;
+    	  border: 1px solid #ccc;
+    	  border: 1px solid rgba(0,0,0,.2);
+    	  *border-right-width: 2px;
+    	  *border-bottom-width: 2px;
+    	  -webkit-border-radius: 6px;
+    	     -moz-border-radius: 6px;
+    	          border-radius: 6px;
+    	  -webkit-box-shadow: 0 5px 10px rgba(0,0,0,.2);
+    	     -moz-box-shadow: 0 5px 10px rgba(0,0,0,.2);
+    	          box-shadow: 0 5px 10px rgba(0,0,0,.2);
+    	  -webkit-background-clip: padding-box;
+    	     -moz-background-clip: padding;
+    	          background-clip: padding-box;
+    	}
+
+    	.tt-suggestion {
+    	  display: block;
+    	  padding: 3px 20px;
+    	}
+
+    	.tt-suggestion.tt-is-under-cursor {
+    	  color: #fff;
+    	  background-color: #0081c2;
+    	  background-image: -moz-linear-gradient(top, #0088cc, #0077b3);
+    	  background-image: -webkit-gradient(linear, 0 0, 0 100%, from(#0088cc), to(#0077b3));
+    	  background-image: -webkit-linear-gradient(top, #0088cc, #0077b3);
+    	  background-image: -o-linear-gradient(top, #0088cc, #0077b3);
+    	  background-image: linear-gradient(to bottom, #0088cc, #0077b3);
+    	  background-repeat: repeat-x;
+    	  filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#ff0088cc', endColorstr='#ff0077b3', GradientType=0)
+    	}
+
+    	.tt-suggestion.tt-is-under-cursor a {
+    	  color: #fff;
+    	}
+
+    	.tt-suggestion p {
+    	  margin: 0;
+    	}
+
+    </style>
+  </head>
+  <body>
+  	<div class="container-fluid">
+	  	<div class="row">
+	  		<div class="col-md-12">
+	  			<h1 align="center"> GrapeVine </h1>
+	  		</div>
+	  	</div>
+	  	<div class="row">
+	  		<div class="col-md-8">
+		  		
+				<div class="navbar-form navbar-left" role="search">
+					<div class="form-group">
+						<input type="text" class="form-control" placeholder="Search" id='txtSearch'>
+					</div>
+					<button type="submit" id='btnSubmit' class="btn btn-primary">Submit</button>
+					<span id="lblReady"> Waiting... </span>
+				</div>
+		  		
+	  		</div>
+
+	  	</div>
+	  	<div class="row">
+	  		<div class="col-md-3">
+				<div id="pnlEvents" style="float: left; clear: left; overflow: auto; height: 500px; width: 100%">
+
+				</div>
+	  		</div>
+	  		<div class="col-md-9">
+
+	  			<div id="pnlPlot" style="float: left;">
+
+	  			</div>
+	  		</div>
+	  	</div>
+  	</div>
+    
+ <!--    <div class="form-group" style="display:block; margin: 15px 10px 15px 10px;">
+    	<input type='text'  class="typeahead" class="form-control" placeholder="Enter Ticker..." />
+    	<button type="button"  class="btn btn-primary">Submit</button>
+    	<span id="lblReady"></span>
+     </div> -->
+  </body>
+</html>
