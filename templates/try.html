@@ -1,0 +1,64 @@
+<!DOCTYPE HTML>
+<meta http-equiv="content-type" content="text/html; charset=UTF8">
+<html>
+  <head>
+    <title>Tryouts</title>
+    <link href="Styles/bootstrap.min.css" rel="stylesheet">
+
+    <script type="text/javascript" src="Scripts/jquery-1.11.2.min.js"></script>
+    <script type="text/javascript" src="Scripts/d3.js"></script>
+    <script type="text/javascript" src="Scripts/typeahead.js"></script>
+    <script type="text/javascript" src="Scripts/underscore-min.js"></script>
+  
+
+  <script type="text/javascript">
+
+  	$(document).ready(function(){
+                //localhost:8181/serve/
+                //./static/sample.json
+                d3.json("http://localhost:8181/serve/", function(error, data){
+                  if(error){
+                    //Erorr occured
+                    console.log(error);
+                  }
+                  else{
+                    _.each(data, function(element, index, list){
+                      //Gather all companies in the dataset
+                      symbols.push(element.entities[0].ticker);
+                    })
+
+                    data1=data;
+                  }
+
+                  //Gather unique companies in the dataset
+              symbols = _.uniq(symbols);
+
+              //Setting up autocomplete
+              $('#txtSearch').typeahead({
+              name: 'States',
+              minLength: 1,
+              highlight: true, 
+              local: symbols
+              });
+
+              $("#lblReady").text('Ready !!!');
+
+              $("#txtSearch").focus();
+                })
+
+  	});
+  
+
+      
+
+      /*=======================Document.Ready ends=========================*/
+
+
+  </script>
+</head>
+  <body>
+    <h1> TRY</h1>
+
+
+  </body>
+</html>
