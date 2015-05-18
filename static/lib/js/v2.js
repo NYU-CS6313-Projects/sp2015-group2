@@ -91,21 +91,6 @@ function drawAllEvents(dataHighMap){
 
 	_.each(dataHighMap, function(root, index, list){
 
-		//Join Unique dates and Event data on dates to get acurarte price values
-		/*_.each(root, function(element, eIndex, eList){
-			//console.log(element.date);
-
-			var d = new Date(element.date);
-
-			d.setHours(0,0,0);
-
-			var singlePrice = _.find(priceData, function(d){
-
-					});
-
-
-		});*/
-
 		drawSingleScatter(root, index, filterPrice)
 	});
 }
@@ -113,7 +98,7 @@ function drawAllEvents(dataHighMap){
 function getPriceDataAndPrepareEvents(){
 
 	//Get CSV Data
-	d3.csv("./static/PriceData/" + srch + ".csv", function(error, data){
+	d3.csv("static/PriceData/" + srch + ".csv", function(error, data){
 		if(error){
 			//Erorr occured
 			console.log(error);
@@ -148,7 +133,6 @@ function getPriceDataAndPrepareEvents(){
 			//Populate event groups to select from
     			makeAList(events);
 		}
-
 
 	});
 }

@@ -4,13 +4,13 @@
   <head>
     <title>GrapeVine v1.0</title>
 
-    <link href="./static/lib/css/bootstrap.min.css" rel="stylesheet">
+    <link href="static/lib/css/bootstrap.min.css" rel="stylesheet">
 
-    <script type="text/javascript" src="./static/lib/js/jquery-1.11.2.min.js"></script>
-    <script type="text/javascript" src="./static/lib/js/d3.js"></script>
-    <script type="text/javascript" src="./static/lib/js/typeahead.js"></script>
-    <script type="text/javascript" src="./static/lib/js/underscore-min.js"></script>
-    <script type="text/javascript" src="./static/lib/js/v2.js"></script>
+    <script type="text/javascript" src="static/lib/js/jquery-1.11.2.min.js"></script>
+    <script type="text/javascript" src="static/lib/js/d3.js"></script>
+    <script type="text/javascript" src="static/lib/js/typeahead.js"></script>
+    <script type="text/javascript" src="static/lib/js/underscore-min.js"></script>
+    <script type="text/javascript" src="static/lib/js/v2.js"></script>
 
     <script type="text/javascript">
 
@@ -36,7 +36,7 @@
     	$(document).ready(function(){
     		//localhost:8181/serve/
     		//./static/sample.json
-    		d3.json("./static/sample.json", function(error, data){
+    		d3.json("static/sample.json", function(error, data){
     			if(error){
     				//Erorr occured
     				console.log(error);
@@ -96,27 +96,7 @@
     	});
 	//---------------------------Document.Ready----------------------------
 
-	function makeAList(eventsList){
-		//Populate events
-		/*d3.select("#pnlEvents")
-			.attr("class", "list-group")
-			.selectAll("a")
-			.data(eventsList)
-			.enter()
-			.append("a")
-			.attr("class", "list-group-item")			
-			.text(function(d){
-				return d;
-			});
-
-		//On event selection, collect and show data
-		$("#pnlEvents a").click(function(){
-
-			var selectedEvent = $(this).text();
-
-			//prepareSingleEventChart(selectedEvent);
-
-		});*/
+	function makeAList(eventsList){	
 
 		//Pass an array containing all event names
 		prepareAllEvents(eventsList);
@@ -139,10 +119,6 @@
 
 		//Collect ticker + event related data
 		_.each(masterData, function(element1, index, list){
-			//console.log("element: " + element + " index: " + index);
-			//console.log(new Date(element.harvested_at.$date));
-			//console.log(element.entities[0].ticker);
-			 
 			 _.each(element1.entities, function(element, index, list){
 
 			 	/*Will make an array of this obejct: {date: '', sourceRank: , sourceId: , articleURL}*/
@@ -169,13 +145,6 @@
 	function drawSingleScatter(dataMap, eventName, filterPrice){
 		console.log("Now plotting");
 
-		//console.log(dataMap);
-/*		var svg = d3.select("#pnlPlot")
-				.append("svg")
-				.attr("class", "box")
-				.attr("height", h)
-				.attr("width", w);*/
-
 		var svg = d3.select("#pnlPlot")
 				.append("div")
 				.attr("class", "graphSpace")
@@ -198,16 +167,12 @@
 
 		var rScale = d3.scale.linear()
 					.domain([d3.min(dataMap, function(d){ return d.sourceRank; }), d3.max(dataMap, function(d){ return d.sourceRank; })])
-					.range([1, 6]);
-
-		// cScale = d3.scale.ordinal()
-		// 			.domain(["1","2","3","4","5","6","7","8","9","10"])
-		// 			.range(["red", "blue", "green", "yellow", "black", "pink", "violet", "indigo", "magenta", "aqua"]);
+					.range([3, 12]);
 
 		cScale = d3.scale.ordinal()
 					.domain([d3.min(dataMap, function(d){ return d.sourceRank; }), d3.max(dataMap, function(d){ return d.sourceRank; })])
-		 			.range(["red", "blue", "green", "yellow", "black", "pink", "violet", "indigo", "magenta", "aqua"]);
-
+		 			.range(["#16002F", "#16002F", "#36076F",, "#36076F", "#5C269B", "#5C269B", "#8D3BEF", "#8D3BEF", "#CB9FFF", "#CB9FFF"]);
+		 
 		var xAxis = d3.svg.axis()
 				.scale(xScale)
 				.orient("bottom")
@@ -218,10 +183,21 @@
 		var yAxis = d3.svg.axis()
 				.orient("left")
 				.scale(yScale)
-				.innerTickSize(-(xScalePadding - scatterPadding))
+				.innerTickSize(-(xScalePadding - scatterPadding + 20))
 			    	.outerTickSize(0)
 				.ticks(6)
+				.tickSubdivide(5)
+				.tickPadding(-2)
 				.tickFormat(d3.time.format('%b %d %Y'));
+
+		//Minor Lines on Y Axis come from here 
+		var minorYAxis = d3.svg.axis()
+					.orient("left")
+					.scale(yScale)
+					.innerTickSize(-(xScalePadding - scatterPadding + 20))
+					.outerTickSize(0)
+					.ticks(30)					
+					.tickFormat("");
 
 		var tooltip = d3.select("body")
 				.append("div")
@@ -233,38 +209,6 @@
 				.style("font-weight", "bold")
 				.text("tooltip");
 
-		/*var line = d3.svg.line()
-				    .x(function(d) { return xScale(d.date.getHours()); })
-				    .y(function(d) { return yScale(dater(d.date)); });*/
-
-		/*svg.append("path")
-			.data([dataMap])
-			.attr("class", "line")
-			.attr("d", line);*/
-
-		//Grid Lines
-		/*svg.append("g")         
-		        .attr("class", "grid")
-		        .attr("transform", "translate(0," + h  - scatterPadding + ")")
-		        .call(xGrid);		            
-
-		svg.append("g")         
-			.attr("class", "grid")
-			.attr("transform", "translate(" + scatterPadding + ", 0)")
-			.call(yGrid);*/
-
-/*		svg.selectAll("circle")
-			.data(dataMap)
-			.enter()
-			.append("circle")
-			.attr({
-				cx: function(d){ return xScale(d.date.getHours()); }
-				, cy: function(d){ return yScale(dater(d.date)); }
-				, r: function(d){ return rScale(d.sourceRank); }
-				, fill: '#500089'
-				, stroke: '#500089'
-			})*/
-
 		svg.selectAll("rect")
 		.data(dataMap)
 		.enter()
@@ -272,42 +216,15 @@
 		.attr({
 			x: function(d){ return xScale(d.date.getHours()); }
 			, y: function(d){ return yScale(dater(d.date)) - 2 ; }
-			, width: 10//function(d){ return rScale(d.sourceRank); }
-			, height: 10//function(d){ return rScale(d.sourceRank); }
+			, width: 10 //function(d){ return rScale(d.sourceRank); }
+			, height: 10 //function(d){ return rScale(d.sourceRank); }
 			, fill: function(d){ 
 				//console.log(d);
 				return cScale(d.sourceRank); }
 			//, stroke: '#C9C9C9'				
 		});
-			//.attr("stroke-width", 1);
-
-		//Showing Price Data
-		/*console.log("Price points available:" + filterPrice.length);
-		console.log("Now plotting Price Data");
-*/
-/*		var svgTry = d3.select("#pnlPlot")
-				.append("div")
-				.attr("class", "graphSpace")
-				.append("h4")
-				.text("Price data")
-				.append("svg")
-				.attr("class", "box")
-				.attr("height", h)
-				.attr("width", w);*/
-
-/*		svg.selectAll("rect")
-			.data(filterPrice)
-			.enter()
-			.append("rect")
-			.attr({
-				x: function(d){ return w - scatterPadding + 15; }
-				, y: function(d){console.log(d); return yScale(dater(d.date)); }
-				, width: 7//function(d){ return rScale(d.sourceRank); }
-				, height: 7//function(d){ return rScale(d.sourceRank); }
-				, fill: '#fff'
-				, stroke: '#fff'
-			});*/
-
+				
+		//Showing price in text
 		svg.selectAll("text")
 			.data(filterPrice)
 			.enter()
@@ -316,7 +233,7 @@
 				return d.change;
 			})
 			.attr("x", function(d){ return w - scatterPadding + 15; })
-			.attr("y", function(d){console.log(d); return yScale(dater(d.date)); })
+			.attr("y", function(d){  return yScale(dater(d.date)); })
 			.attr("fill", "red")
 			.attr("font-size", "10px");
 
@@ -329,6 +246,13 @@
 			.attr("class", "axis")
 			.attr("transform", "translate(" + (scatterPadding) + ", 0)")
 			.call(yAxis);
+
+		//Minor Lines on Y Axis get appended here to the main svg element
+		svg.append("g")
+			.attr("class", "axis")
+			.attr("transform", "translate(" + (scatterPadding) + ", 0)")
+			.call(minorYAxis);
+
 
 		d3.selectAll('rect').on('mouseover', function(){
 			//console.log($(this)[0].__data__.articleURL);
@@ -388,8 +312,13 @@
     	}
 
     	.axis .tick line{
-	    opacity: 0.2;
+		opacity: 0.2;
 	  }
+
+	.axis .minor {
+		stroke: red;
+		stroke-width: 0.4px;
+	}
 
     	  .grid .tick {
     	      stroke: black;
@@ -479,81 +408,45 @@
 					<table>
 						<tr>
 							<td colspan="2">
-								Legend: Source Rank 
+								Legend: Source Influence 
 							</td>
 						</tr>
 						<tr>
-							<td style="background-color: red">
+							<td style="background-color: #16002F;">
 								&nbsp;
 							</td>
-							<td>   RANK 1</td>
+							<td>   Highest </td>
 						</tr>
 						<tr>
-							<td style="background-color: blue">
+							<td style="background-color: #36076F">
 								&nbsp;
 							</td>
-							<td>   RANK 2</td>
+							<td>   Medium - High </td>
 						</tr>
 						<tr>
-							<td style="background-color:yellow">
+							<td style="background-color: #5C269B">
 								&nbsp;
 							</td>
-							<td>   RANK 3</td>
+							<td>   Medium </td>
 						</tr>
 						<tr>
-							<td style="background-color:black">
+							<td style="background-color: #8D3BEF">
 								&nbsp;
 							</td>
-							<td>   RANK 4</td>
+							<td>   Medium - Low</td>
 						</tr>
 						<tr>
-							<td style="background-color: pink">
+							<td style="background-color: #CB9FFF">
 								&nbsp;
 							</td>
-							<td>   RANK 5</td>
-						</tr>
-						<tr>
-							<td style="background-color: red">
-								&nbsp;
-							</td>
-							<td>   RANK 6</td>
-						</tr>
-						<tr>
-							<td style="background-color: violet">
-								&nbsp;
-							</td>
-							<td>   RANK 7</td>
-						</tr>
-						<tr>
-							<td style="background-color: indigo">
-								&nbsp;
-							</td>
-							<td>   RANK 8</td>
-						</tr>
-						<tr>
-							<td style="background-color:magenta">
-								&nbsp;
-							</td>
-							<td>   RANK 9<td>
-						</tr>
-						<tr>
-							<td style="background-color:aqua">
-								&nbsp;
-							</td>
-							<td>   RANK 10</td>
-						</tr>						
+							<td>   Lowest</td>
+						</tr>					
 					</table>
 				</div>
 	  		</div>
 	  		<div class="col-md-9" id="pnlPlot">
 	  		</div>
 	  	</div>
-  	</div>
-    
- <!--    <div class="form-group" style="display:block; margin: 15px 10px 15px 10px;">
-    	<input type='text'  class="typeahead" class="form-control" placeholder="Enter Ticker..." />
-    	<button type="button"  class="btn btn-primary">Submit</button>
-    	<span id="lblReady"></span>
-     </div> -->
+  	</div>    
   </body>
 </html>

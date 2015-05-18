@@ -21,7 +21,7 @@ print start
 #     return render_template("index.html")
 @app.route("/")
 def index():
-        return render_template("index.html")
+        return render_template("v2.html")
 
 @app.route("/v1")
 def v1():
@@ -30,6 +30,10 @@ def v1():
 @app.route("/v2Try")
 def v2Try():
         return render_template("v2Try.html")
+
+@app.route("/v3")
+def v3():
+        return render_template("v3.html")
 
 @app.route("/serve/")
 def test_projects():

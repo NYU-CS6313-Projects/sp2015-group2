@@ -1,0 +1,524 @@
+<!DOCTYPE HTML>
+<meta http-equiv="content-type" content="text/html; charset=UTF8">
+<html>
+  <head>
+    <title>GrapeVine v1.0</title>
+
+    <link href="./static/lib/css/bootstrap.min.css" rel="stylesheet">
+
+    <script type="text/javascript" src="./static/lib/js/jquery-1.11.2.min.js"></script>
+    <script type="text/javascript" src="./static/lib/js/d3.js"></script>
+    <script type="text/javascript" src="./static/lib/js/typeahead.js"></script>
+    <script type="text/javascript" src="./static/lib/js/underscore-min.js"></script>
+    <script type="text/javascript" src="./static/lib/js/v2.js"></script>
+
+    <script type="text/javascript">
+
+	var symbols=[];
+	var srch;
+	var masterData;
+	var priceData={};
+	var xScale, yScale;
+	var scatterPadding = 60;
+	var w = 600;
+	var h = 500;
+
+	var cScale;
+
+	//Contains unique event  groups
+	var events=[];
+
+	var xScalePadding = w - scatterPadding;
+	var yScalePadding = h - scatterPadding + 40;
+
+	//var parseDate = d3.time.format("%Y-%m-%d %H:%M:%S").parse;
+
+    	$(document).ready(function(){
+    		//localhost:8181/serve/
+    		//./static/sample.json
+    		d3.json("./static/sample.json", function(error, data){
+    			if(error){
+    				//Erorr occured
+    				console.log(error);
+    			}
+    			else{
+    				_.each(data, function(element, index, list){
+    					//Gather all companies in the dataset
+    					symbols.push(element.entities[0].ticker);
+    				});
+
+    				masterData = data;
+    			}
+
+    			//Gather unique companies in the dataset
+			symbols = _.uniq(symbols);
+
+			//Setting up autocomplete
+			$('#txtSearch').typeahead({
+			name: 'States',
+			minLength: 1,
+			highlight: true, 
+			local: symbols
+			});
+
+			$("#lblReady").text('Ready !!!');
+
+			$("#txtSearch").focus();
+    		})
+
+
+    		$('#btnSubmit').click(function(){
+
+    			//Get selected ticker
+    			srch = $('#txtSearch').val();
+    			console.log("Clicked " + srch);
+
+    			//Collect all event groups in an array
+    			events=[];
+
+    			_.each(masterData, function(root, index, list){
+    				 _.each(root.entities, function(entity, index, list){
+    				 	if(entity.ticker == srch){
+    				 		_.each(root.event_groups, function(eventGroup, index, list){
+			 				events.push(eventGroup.group);
+    				 		});
+    				 	}
+    				 });
+    			})
+    			
+    			//All Unique event groups 
+    			events = _.uniq(events);
+    			//$("#pnlEvents").empty();
+
+    			//console.log(events);
+    			getPriceDataAndPrepareEvents();
+    		});
+    	});
+	//---------------------------Document.Ready----------------------------
+
+	function makeAList(eventsList){
+		//Populate events
+		/*d3.select("#pnlEvents")
+			.attr("class", "list-group")
+			.selectAll("a")
+			.data(eventsList)
+			.enter()
+			.append("a")
+			.attr("class", "list-group-item")			
+			.text(function(d){
+				return d;
+			});
+
+		//On event selection, collect and show data
+		$("#pnlEvents a").click(function(){
+
+			var selectedEvent = $(this).text();
+
+			//prepareSingleEventChart(selectedEvent);
+
+		});*/
+
+		//Pass an array containing all event names
+		prepareAllEvents(eventsList);
+	}
+
+	//---------------------------Mapping functions---------------------------
+
+	function dater(date){
+		var newDate = new Date(date.getUTCFullYear(), date.getMonth(), date.getUTCDate());
+		//console.log(newDate);
+		return newDate;
+	}
+
+	function prepareSingleEventChart(selectedEvent){
+		var dataMap=[];
+
+		var priceMap=[];
+
+		$("#pnlPlot").empty();
+
+		//Collect ticker + event related data
+		_.each(masterData, function(element1, index, list){
+			//console.log("element: " + element + " index: " + index);
+			//console.log(new Date(element.harvested_at.$date));
+			//console.log(element.entities[0].ticker);
+			 
+			 _.each(element1.entities, function(element, index, list){
+
+			 	/*Will make an array of this obejct: {date: '', sourceRank: , sourceId: , articleURL}*/
+			 	if(element.ticker == srch){
+			 		_.each(element1.event_source_rank, function(element0, index, list){
+	 				//Event Dates
+			 			if(element0.event == selectedEvent){
+			 				dataMap.push({date: new Date(element1.harvested_at.$date)
+			 						, sourceRank: element0.source_rank
+			 						, sourceId: element1.source_id
+			 						, articleURL: element1.article_url});
+			 			}
+			 		});
+			 	}
+			 });
+		})
+
+		//console.log(dataMap);
+
+		//After data is finalised, visualize!
+		drawSingleScatter(dataMap);
+	}
+
+	function drawSingleScatter(dataMap, eventName, filterPrice){
+		console.log("Now plotting");
+
+		//console.log(dataMap);
+/*		var svg = d3.select("#pnlPlot")
+				.append("svg")
+				.attr("class", "box")
+				.attr("height", h)
+				.attr("width", w);*/
+
+		var svg = d3.select("#pnlPlot")
+				.append("div")
+				.attr("class", "graphSpace")
+				.append("h4")
+				.text(eventName)
+				.append("svg")
+				.attr("class", "box")
+				.attr("height", h)
+				.attr("width", w);
+
+		xScale = d3.scale.linear()
+				.domain([d3.min(dataMap, function(d){ return d.date.getHours(); })
+					, d3.max(dataMap, function(d){ return d.date.getHours(); })])
+				.range([scatterPadding, xScalePadding]);
+
+		yScale = d3.time.scale()
+					.domain([d3.min(dataMap, function(d){ var d1 = dater(d.date); return d1.setDate(d1.getDate() - 1); })
+						, d3.max(dataMap, function(d){ return dater(d.date); })])
+					.range([yScalePadding, scatterPadding]);
+
+		var rScale = d3.scale.linear()
+					.domain([d3.min(dataMap, function(d){ return d.sourceRank; }), d3.max(dataMap, function(d){ return d.sourceRank; })])
+					.range([3, 12]);
+
+		// cScale = d3.scale.ordinal()
+		// 			.domain(["1","2","3","4","5","6","7","8","9","10"])
+		// 			.range(["red", "blue", "green", "yellow", "black", "pink", "violet", "indigo", "magenta", "aqua"]);
+
+		cScale = d3.scale.ordinal()
+					.domain([d3.min(dataMap, function(d){ return d.sourceRank; }), d3.max(dataMap, function(d){ return d.sourceRank; })])
+		 			.range(["#16002F", "#16002F", "#36076F",, "#36076F", "#5C269B", "#5C269B", "#8D3BEF", "#8D3BEF", "#CB9FFF", "#CB9FFF"]);
+		 			//.range(["#001040", "#000551", "#060065", "#000D71", "#002080", "#003390", "#0047A3", "#005CB6", "#0070CA", "#007FC1"]);
+
+		var xAxis = d3.svg.axis()
+				.scale(xScale)
+				.orient("bottom")
+				.innerTickSize(-(yScalePadding - scatterPadding))
+			    	.outerTickSize(0)
+				.ticks(12);
+		
+		var yAxis = d3.svg.axis()
+				.orient("left")
+				.scale(yScale)
+				.innerTickSize(-(xScalePadding - scatterPadding + 20))
+			    	.outerTickSize(0)
+				.ticks(6)
+				.tickSubdivide(5)
+				.tickPadding(-2)
+				.tickFormat(d3.time.format('%b %d %Y'));
+
+		//Minor Lines on Y Axis come from here 
+		var minorYAxis = d3.svg.axis()
+					.orient("left")
+					.scale(yScale)
+					.innerTickSize(-(xScalePadding - scatterPadding + 20))
+					.outerTickSize(0)
+					.ticks(30)					
+					.tickFormat("");
+
+		var tooltip = d3.select("body")
+				.append("div")
+				.style("position", "absolute")
+				.style("z-index", "10")
+				.style("visibility", "hidden")
+				.style("background-color", "white")
+				.style("opacity", "0.8")
+				.style("font-weight", "bold")
+				.text("tooltip");
+
+		svg.selectAll("rect")
+		.data(dataMap)
+		.enter()
+		.append("rect")
+		.attr({
+			x: function(d){ return xScale(d.date.getHours()); }
+			, y: function(d){ return yScale(dater(d.date)) - 2 ; }
+			, width: 10 //function(d){ return rScale(d.sourceRank); }
+			, height: 10 //function(d){ return rScale(d.sourceRank); }
+			, fill: function(d){ 
+				//console.log(d);
+				return cScale(d.sourceRank); }
+			//, stroke: '#C9C9C9'				
+		});
+				
+		//Showing price in text
+		svg.selectAll("text")
+			.data(filterPrice)
+			.enter()
+			.append("text")
+			.text(function(d){
+				return d.change;
+			})
+			.attr("x", function(d){ return w - scatterPadding + 15; })
+			.attr("y", function(d){  return yScale(dater(d.date)); })
+			.attr("fill", "red")
+			.attr("font-size", "10px");
+
+		svg.append("g")
+			.attr("class", "axis")
+			.attr("transform", "translate(0, " + (yScalePadding) +  ")")
+			.call(xAxis);
+
+		svg.append("g")
+			.attr("class", "axis")
+			.attr("transform", "translate(" + (scatterPadding) + ", 0)")
+			.call(yAxis);
+
+		//Minor Lines on Y Axis get appended here to the main svg element
+		svg.append("g")
+			.attr("class", "axis")
+			.attr("transform", "translate(" + (scatterPadding) + ", 0)")
+			.call(minorYAxis);
+
+
+		d3.selectAll('rect').on('mouseover', function(){
+			//console.log($(this)[0].__data__.articleURL);
+			var tip = $(this)[0].__data__.articleURL;
+
+			tip = tip.split("/")[2];
+
+			tooltip.style("visibility", "visible");
+			tooltip.text(tip);
+		});
+
+		d3.selectAll('rect').on("mousemove", function(){
+			tooltip.style("top",(d3.event.pageY-10)+"px")
+			tooltip.style("left",(d3.event.pageX+10)+"px");
+		});
+
+		d3.selectAll('rect').on("mouseout", function(){
+			tooltip.style("visibility", "hidden");
+		});
+	}
+
+    </script>
+
+    <style type="text/css">
+    	.box{
+    		/*width: 500px;
+    		height: 150px;*/
+    		border: 1px solid black;
+    		display: block;
+    		margin: 10px 20px 10px 20px;
+
+    	}
+
+    	div.bar {
+	    	display: inline-block;
+	    	width: 20px;
+	    	height: 75px; /* We'll override height later */
+	    	background-color: teal;
+	    	margin-right: 2px;
+    	}
+
+    	div.graphSpace{
+    		float: left;
+    		border: 1px solid green;
+    		margin: 5px;
+    	}
+
+    	.axis path,
+    	.axis line {
+	    	fill: none;
+	    	stroke: black;
+	    	shape-rendering: crispEdges;
+    	}
+    	.axis text {
+	    	font-family: sans-serif;
+	    	font-size: 11px;
+    	}
+
+    	.axis .tick line{
+		opacity: 0.2;
+	  }
+
+	.axis .minor {
+		stroke: red;
+		stroke-width: 0.4px;
+	}
+
+    	  .grid .tick {
+    	      stroke: black;
+    	      opacity: 0.7;
+    	  }
+    	  .grid path {
+    	        stroke-width: 0;
+    	        shape-rendering: crispEdges;
+    	  }
+
+    	/*=====Type Ahead====*/
+    	/*********Type ahead**********/
+    	.twitter-typeahead .tt-query,
+    	.twitter-typeahead .tt-hint {
+    	  margin-bottom: 0;
+    	  background-color: white !important;
+    	}
+
+    	.tt-dropdown-menu {
+    	  min-width: 160px;
+    	  margin-top: 2px;
+    	  padding: 5px 0;
+    	  background-color: #fff;
+    	  border: 1px solid #ccc;
+    	  border: 1px solid rgba(0,0,0,.2);
+    	  *border-right-width: 2px;
+    	  *border-bottom-width: 2px;
+    	  -webkit-border-radius: 6px;
+    	     -moz-border-radius: 6px;
+    	          border-radius: 6px;
+    	  -webkit-box-shadow: 0 5px 10px rgba(0,0,0,.2);
+    	     -moz-box-shadow: 0 5px 10px rgba(0,0,0,.2);
+    	          box-shadow: 0 5px 10px rgba(0,0,0,.2);
+    	  -webkit-background-clip: padding-box;
+    	     -moz-background-clip: padding;
+    	          background-clip: padding-box;
+    	}
+
+    	.tt-suggestion {
+    	  display: block;
+    	  padding: 3px 20px;
+    	}
+
+    	.tt-suggestion.tt-is-under-cursor {
+    	  color: #fff;
+    	  background-color: #0081c2;
+    	  background-image: -moz-linear-gradient(top, #0088cc, #0077b3);
+    	  background-image: -webkit-gradient(linear, 0 0, 0 100%, from(#0088cc), to(#0077b3));
+    	  background-image: -webkit-linear-gradient(top, #0088cc, #0077b3);
+    	  background-image: -o-linear-gradient(top, #0088cc, #0077b3);
+    	  background-image: linear-gradient(to bottom, #0088cc, #0077b3);
+    	  background-repeat: repeat-x;
+    	  filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#ff0088cc', endColorstr='#ff0077b3', GradientType=0)
+    	}
+
+    	.tt-suggestion.tt-is-under-cursor a {
+    	  color: #fff;
+    	}
+
+    	.tt-suggestion p {
+    	  margin: 0;
+    	}
+
+    </style>
+  </head>
+  <body>
+  	<div class="container-fluid">
+	  	<div class="row">
+	  		<div class="col-md-12">
+	  			<h1 align="center"> GrapeVine </h1>
+	  		</div>
+	  	</div>
+	  	<div class="row">
+	  		<div class="col-md-8">		  		
+				<div class="navbar-form navbar-left" role="search">
+					<div class="form-group">
+						<input type="text" class="form-control" placeholder="Search" id='txtSearch'>
+					</div>
+					<button type="submit" id='btnSubmit' class="btn btn-primary">Submit</button>
+					<span id="lblReady"> Waiting... </span>
+				</div>		  		
+	  		</div>
+	  	</div>
+	  	<div class="row">
+	  		<div class="col-md-3">
+				<div id="pnlEvents" style="float: left; clear: left; overflow: auto; height: 500px; width: 100%; margin-left: 15px">
+					<table>
+						<tr>
+							<td colspan="2">
+								Legend: Source Influence 
+							</td>
+						</tr>
+						<tr>
+							<td style="background-color: #16002F;">
+								&nbsp;
+							</td>
+							<td>   Highest </td>
+						</tr>
+						<tr>
+							<td style="background-color: #36076F">
+								&nbsp;
+							</td>
+							<td>   Medium - High </td>
+						</tr>
+						<tr>
+							<td style="background-color: #5C269B">
+								&nbsp;
+							</td>
+							<td>   Medium </td>
+						</tr>
+						<tr>
+							<td style="background-color: #8D3BEF">
+								&nbsp;
+							</td>
+							<td>   Medium - Low</td>
+						</tr>
+						<tr>
+							<td style="background-color: #CB9FFF">
+								&nbsp;
+							</td>
+							<td>   Lowest</td>
+						</tr>
+						<!-- <tr>
+							<td style="background-color: #003390">
+								&nbsp;
+							</td>
+							<td>   RANK 6</td>
+						</tr>
+						<tr>
+							<td style="background-color: #0047A3">
+								&nbsp;
+							</td>
+							<td>   RANK 7</td>
+						</tr>
+						<tr>
+							<td style="background-color: #005CB6">
+								&nbsp;
+							</td>
+							<td>   RANK 8</td>
+						</tr>
+						<tr>
+							<td style="background-color: #0070CA">
+								&nbsp;
+							</td>
+							<td>   RANK 9<td>
+						</tr>
+						<tr>
+							<td style="background-color: #007FC1">
+								&nbsp;
+							</td>
+							<td>   RANK 10</td>
+						</tr> -->						
+					</table>
+				</div>
+	  		</div>
+	  		<div class="col-md-9" id="pnlPlot">
+	  		</div>
+	  	</div>
+  	</div>
+    
+ <!--    <div class="form-group" style="display:block; margin: 15px 10px 15px 10px;">
+    	<input type='text'  class="typeahead" class="form-control" placeholder="Enter Ticker..." />
+    	<button type="button"  class="btn btn-primary">Submit</button>
+    	<span id="lblReady"></span>
+     </div> -->
+  </body>
+</html>
