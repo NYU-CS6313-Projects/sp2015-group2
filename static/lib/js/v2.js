@@ -98,7 +98,7 @@ function drawAllEvents(dataHighMap){
 function getPriceDataAndPrepareEvents(){
 
 	//Get CSV Data
-	d3.csv("static/PriceData/" + srch + ".csv", function(error, data){
+	d3.csv("static/PriceData/" + srch.toLowerCase() + ".csv", function(error, data){
 		if(error){
 			//Erorr occured
 			console.log(error);
